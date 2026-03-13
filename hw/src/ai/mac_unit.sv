@@ -1,4 +1,6 @@
-module mac_unit (
+module mac_unit 
+    import dsp_pkg::*;
+(
     input  logic               clk,
     input  logic               rst_n,
 
@@ -12,6 +14,7 @@ module mac_unit (
 
     // Data output
     output logic signed [31:0] accumulator_out
+);
 
 logic signed [15:0] product;
 assign product = pixel_in * weight_in;

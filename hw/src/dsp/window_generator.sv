@@ -17,10 +17,7 @@ module
 logic [DATA_WIDTH-1:0] buffer1_o, buffer2_o;
 logic buffer1_valid, buffer2_valid;
 
-line_buffer #(
-.DATA_WIDTH(DATA_WIDTH),
-.MAX_COLS(MAX_COLS)
-) buffer1 (
+line_buffer buffer1 (
     .clk(clk),
     .rst_n(rst_n),
     .s_valid(s_valid),
@@ -29,10 +26,7 @@ line_buffer #(
     .m_data(buffer1_o)
 );
 
-line_buffer #(
-.DATA_WIDTH(DATA_WIDTH),
-.MAX_COLS(MAX_COLS)
-) buffer2 (
+line_buffer buffer2 (
     .clk(clk),
     .rst_n(rst_n),
     .s_valid(buffer1_valid),

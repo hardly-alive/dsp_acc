@@ -1,15 +1,13 @@
-module weight_rom #(
-    parameter ADDR_WIDTH = 10,
-    parameter DATA_WIDTH = 8,
-    parameter WEIGHT_FILE = "weights.hex" // Path to the hex file
-)(
+module weight_rom 
+    import dsp_pkg::*;
+(
     input  logic                    clk,
-    input  logic [ADDR_WIDTH-1:0]   addr,
+    input  logic [ROM_ADDR_WIDTH-1:0]   addr,
     
     output logic signed [DATA_WIDTH-1:0] weight_out
 );
 
-logic signed [DATA_WIDTH-1:0] rom_memory [0:(2**ADDR_WIDTH)-1];
+logic signed [DATA_WIDTH-1:0] rom_memory [0:(1 << ROM_ADDR_WIDTH)-1];
 
 initial begin
     $readmemh(WEIGHT_FILE, rom_memory);
