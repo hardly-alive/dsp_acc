@@ -1,6 +1,6 @@
-module sobel 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module sobel (
     input  logic                                clk,
     input  logic                                rst_n,
     

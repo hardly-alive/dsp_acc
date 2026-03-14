@@ -1,6 +1,6 @@
-module line_buffer 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module line_buffer (
     input  logic                    clk,
     input  logic                    rst_n,
     

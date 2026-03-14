@@ -1,6 +1,6 @@
-module mac_unit 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module mac_unit (
     input  logic               clk,
     input  logic               rst_n,
 

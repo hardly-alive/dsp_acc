@@ -1,6 +1,6 @@
-module dsp_top 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module dsp_top (
     input  logic        clk,
     input  logic        rst_n,
 
@@ -50,9 +50,7 @@ end
 // ==========================================
 
 // Window Generator 1
-window_generator #(
-.MAX_COLS(MAX_COLS)
-) win1 (
+window_generator win1 (
     .clk(clk),
     .rst_n(rst_n),
     .s_valid(gray_valid),
@@ -66,21 +64,19 @@ gaussian_blur blur (
     .clk(clk),
     .rst_n(rst_n),
     .s_valid(win1_valid),
-    .s_data(win1_data),
+    .s_window(win1_data),
     .m_valid(blur_valid),
-    .m_window(blur_data)
+    .m_data(blur_data)
 );
 
 // Window Generator 2
-window_generator #(
-.MAX_COLS(MAX_COLS)
-) win2 (
+window_generator win2 (
     .clk(clk),
     .rst_n(rst_n),
     .s_valid(blur_valid),
-    .s_window(blur_data),
+    .s_data(blur_data),
     .m_valid(win2_valid),
-    .m_data(win2_data)
+    .m_window(win2_data)
 );
 
 // Sobel Edge Detector

@@ -1,6 +1,6 @@
-module 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module window_generator (
     input  logic                                clk,
     input  logic                                rst_n,
     

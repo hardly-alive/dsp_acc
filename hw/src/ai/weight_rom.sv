@@ -1,6 +1,6 @@
-module weight_rom 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module weight_rom (
     input  logic                    clk,
     input  logic [ROM_ADDR_WIDTH-1:0]   addr,
     

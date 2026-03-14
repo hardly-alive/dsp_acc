@@ -1,6 +1,6 @@
-module ai_classifier 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module ai_classifier (
     input  logic                    clk,
     input  logic                    rst_n,
 

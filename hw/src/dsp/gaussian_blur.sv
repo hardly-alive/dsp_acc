@@ -1,6 +1,6 @@
-module gaussian_blur 
-    import dsp_pkg::*;
-(
+import dsp_pkg::*;
+
+module gaussian_blur (
     input  logic                                clk,
     input  logic                                rst_n,
     
