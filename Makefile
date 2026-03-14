@@ -29,12 +29,12 @@ all: full_flow
 prep:
 	@echo "\n--- [1/4] Generating Hex Data ---"
 	python3 sw/utils/img2hex.py
-	python3 sw/utils/gen_weights.py
+	python3 sw/ai/train_model.py
 
 # 2. Compile SystemVerilog to C++ and build the executable
 build:
 	@echo "\n--- [2/4] Verilating SystemVerilog & Building C++ ---"
-	$(VERILATOR) --cc --exe --build -j 4 $(INC_FLAGS) $(PKG_SRC) $(SV_SRCS) $(TB) --top-module $(TOP) -Wno-fatal
+	$(VERILATOR) --cc --exe --build --trace -j 4 $(INC_FLAGS) $(PKG_SRC) $(SV_SRCS) $(TB) --top-module $(TOP) -Wno-fatal
 
 # 3. Run the compiled C++ simulation
 run: build
@@ -45,6 +45,7 @@ run: build
 image:
 	@echo "\n--- [4/4] Reconstructing Output Image ---"
 	python3 sw/utils/hex2img.py
+	python3 sw/utils/view_weights.py
 
 # The master sequence
 full_flow: prep run image
@@ -54,4 +55,4 @@ full_flow: prep run image
 clean:
 	@echo "Cleaning workspace..."
 	rm -rf obj_dir
-	rm -f video_in.hex video_out.hex weights.hex dsp_output.jpg
+	rm -f *.hex *.jpg *.vcd

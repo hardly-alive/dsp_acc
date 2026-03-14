@@ -14,22 +14,35 @@ module ai_classifier (
 
 logic signed [DATA_WIDTH-1:0] rom_weight;
 logic signed [31:0]           mac_result;
-logic                         mac_clear;
 logic [11:0]                  pixel_count;
+logic [15:0] hazard_timer;
 
 // Pipeline Delay Registers (To match ROM 1-cycle latency)
 logic                         s_valid_d1;
 logic signed [DATA_WIDTH-1:0] s_pixel_d1;
+
+// End-Of-Window Delay Line
+logic                         eow_d1;
+logic                         eow_d2;
 
 
 always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         s_valid_d1  <= 1'b0;
         s_pixel_d1  <= '0;
+        eow_d1      <= 1'b0;
+        eow_d2      <= 1'b0;
     end
     else begin
         s_valid_d1  <= s_valid;
-        s_pixel_d1  <= $signed(s_pixel);
+
+        if (s_pixel > 8'd150)
+            s_pixel_d1 <= 8'd1;
+        else
+            s_pixel_d1 <= 8'd0;
+
+        eow_d1 <= (s_valid && (pixel_count == 4095));
+        eow_d2 <= eow_d1;
     end
 end
 
@@ -39,13 +52,10 @@ weight_rom u_rom(
     .weight_out(rom_weight)
 );
 
-// Clear the MAC when we hit the last pixel of the 64x64 window
-assign mac_clear = (pixel_count == 4095);
-
 mac_unit u_mac(
     .clk(clk),
     .rst_n(rst_n),
-    .clear(mac_clear),     
+    .clear(eow_d2),     
     .valid_in(s_valid_d1),     
     .pixel_in(s_pixel_d1),     
     .weight_in(rom_weight),
@@ -69,11 +79,18 @@ always_ff @(posedge clk or negedge rst_n) begin
         end
 
 
-        if (s_valid_d1 && (pixel_count == 0)) begin 
-            if (mac_result > AI_HAZARD_THRESH)
-                hazard_detected <= 1'b1;
-            else
-                hazard_detected <= 1'b0;
+        if (eow_d2 && (mac_result > AI_HAZARD_THRESH)) begin
+            hazard_detected <= 1'b1;
+            hazard_timer    <= 16'd5000; // Signal stays HIGH for 5000 cycles
+            $display(">>> [HAZARD] Score: %0d | Time: %0t", mac_result, $time);
+        end 
+        else if (hazard_timer > 0) begin
+            hazard_timer    <= hazard_timer - 1'b1;
+            hazard_detected <= 1'b1;
+        end 
+        else begin
+            // Reset signal when timer is finished
+            hazard_detected <= 1'b0;
         end
     end
 end

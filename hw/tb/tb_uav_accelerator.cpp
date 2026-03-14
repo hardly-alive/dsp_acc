@@ -4,14 +4,21 @@
 #include <iomanip> // Required for hex formatting
 #include "Vuav_accelerator_top.h"
 #include "verilated.h"
+#include "verilated_vcd_c.h"
 
 int main(int argc, char** argv) {
     // 1. Create a modern VerilatedContext to manage simulation time and state
     VerilatedContext* contextp = new VerilatedContext;
     contextp->commandArgs(argc, argv);
+
+    contextp->traceEverOn(true);
     
     // 2. Instantiate the hardware module, passing the context
     Vuav_accelerator_top* top = new Vuav_accelerator_top{contextp};
+
+    VerilatedVcdC* tfp = new VerilatedVcdC;
+    top->trace(tfp, 99); // Trace 99 levels of hierarchy
+    tfp->open("waveform.vcd");
 
     // 3. Open input and output files
     std::ifstream video_in("video_in.hex");
@@ -60,10 +67,11 @@ int main(int argc, char** argv) {
         // Toggle Clock HIGH
         top->clk = 1;
         top->eval(); // Evaluate the SystemVerilog logic
+        tfp->dump(contextp->time());
         contextp->timeInc(1); // Increment context time
 
         // Monitor AI Trigger Output
-        if (top->hazard_detected == 1) {
+        if (top->hazard_detected == 1 && output_pixel_count < 5) {
             std::cout << "⚠️ [TIME " << contextp->time() << "] HAZARD DETECTED! Evasive action triggered." << std::endl;
         }
 
@@ -73,10 +81,12 @@ int main(int argc, char** argv) {
             video_out << std::setfill('0') << std::setw(2) << std::hex << (int)top->m_dsp_data << "\n";
             output_pixel_count++;
         }
+        
 
         // Toggle Clock LOW
         top->clk = 0;
         top->eval(); 
+        tfp->dump(contextp->time());
         contextp->timeInc(1); // Increment context time
     }
 
@@ -89,8 +99,10 @@ int main(int argc, char** argv) {
     // Cleanup
     video_in.close();
     video_out.close();
+    tfp->close();
     top->final(); // Execute any SystemVerilog final blocks
     delete top;
     delete contextp;
+    delete tfp;
     return 0;
 }
