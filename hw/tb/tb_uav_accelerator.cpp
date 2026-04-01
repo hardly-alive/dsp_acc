@@ -1,108 +1,136 @@
+#include <verilated.h>
+#include <verilated_vcd_c.h>
+#include "Vuav_accelerator_top.h"
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <iomanip> // Required for hex formatting
-#include "Vuav_accelerator_top.h"
-#include "verilated.h"
-#include "verilated_vcd_c.h"
+#include <vector>
+#include <iomanip>
+
+#define MAX_COLS 1280
+#define MAX_ROWS 720
+
+vluint64_t main_time = 0;
+
+// Clock generation function
+double sc_time_stamp() {
+    return main_time;
+}
 
 int main(int argc, char** argv) {
-    // 1. Create a modern VerilatedContext to manage simulation time and state
-    VerilatedContext* contextp = new VerilatedContext;
-    contextp->commandArgs(argc, argv);
+    Verilated::commandArgs(argc, argv);
+    Vuav_accelerator_top* top = new Vuav_accelerator_top;
 
-    contextp->traceEverOn(true);
-    
-    // 2. Instantiate the hardware module, passing the context
-    Vuav_accelerator_top* top = new Vuav_accelerator_top{contextp};
-
+    // Enable VCD tracing
+    Verilated::traceEverOn(true);
     VerilatedVcdC* tfp = new VerilatedVcdC;
-    top->trace(tfp, 99); // Trace 99 levels of hierarchy
+    top->trace(tfp, 99);
     tfp->open("waveform.vcd");
 
-    // 3. Open input and output files
-    std::ifstream video_in("video_in.hex");
-    std::ofstream video_out("video_out.hex");
+    // File I/O for images
+    std::ifstream infile("video_in.hex");
+    std::ofstream outfile("video_out.hex");
 
-    if (!video_in.is_open()) {
-        std::cerr << "Error: Could not open video_in.hex" << std::endl;
-        return 1;
-    }
-    if (!video_out.is_open()) {
-        std::cerr << "Error: Could not open video_out.hex" << std::endl;
-        return 1;
+    if (!infile.is_open()) {
+        std::cerr << "Error: Could not open video_in.hex!" << std::endl;
+        return -1;
     }
 
-    // Initialize physical pins
-    top->clk = 0;
-    top->rst_n = 0;
-    top->s_valid = 0;
-    top->s_data = 0;
+    // Initialize inputs
+    top->aclk = 0;
+    top->aresetn = 0; // Active-low reset
+    top->s_axis_tvalid = 0;
+    top->s_axis_tdata = 0;
+    top->s_axis_tlast = 0;
+    top->s_axis_tuser = 0;
+    top->m_axis_tready = 1; // We (the output memory) are always ready
 
-    int input_pixel_count = 0;
-    int output_pixel_count = 0;
-    std::string hex_line;
+    // 1. Reset Sequence
+    std::cout << "[TB] Starting Reset Sequence..." << std::endl;
+    for (int i = 0; i < 10; i++) {
+        top->aclk = !top->aclk;
+        top->eval();
+        tfp->dump(main_time++);
+    }
+    top->aresetn = 1; // Release reset
+    std::cout << "[TB] Reset Released. Starting AXI Video Stream." << std::endl;
 
-    std::cout << "Starting UAV Hardware Simulation with VerilatedContext..." << std::endl;
+    // 2. Stream the Image
+    std::string line;
+    int row = 0;
+    int col = 0;
+    int pixel_count = 0;
+    int hazard_triggered_count = 0;
 
-    // Run until the file is empty or Verilator is forced to stop
-    while (!contextp->gotFinish() && !video_in.eof()) {
+    while (std::getline(infile, line) && !Verilated::gotFinish()) {
+        uint32_t pixel_val = std::stoul(line, nullptr, 16);
+
+        // --- THE AXI BRIDGE LOGIC ---
+        top->s_axis_tvalid = 1;
+        top->s_axis_tdata = pixel_val;
         
-        // Hardware Reset Sequence: Hold reset low for the first 10 time steps
-        if (contextp->time() > 10) {
-            top->rst_n = 1; 
-        }
-
-        // Feed Data to the Pins (Only update inputs when clock is LOW)
-        if (top->rst_n == 1 && top->clk == 0) {
-            if (std::getline(video_in, hex_line)) {
-                top->s_valid = 1;
-                top->s_data = std::stoi(hex_line, nullptr, 16);
-                input_pixel_count++;
-            } else {
-                top->s_valid = 0;
-            }
-        }
-
-        // Toggle Clock HIGH
-        top->clk = 1;
-        top->eval(); // Evaluate the SystemVerilog logic
-        tfp->dump(contextp->time());
-        contextp->timeInc(1); // Increment context time
-
-        // Monitor AI Trigger Output
-        if (top->hazard_detected == 1 && output_pixel_count < 5) {
-            std::cout << "⚠️ [TIME " << contextp->time() << "] HAZARD DETECTED! Evasive action triggered." << std::endl;
-        }
-
-        // Write DSP Output to video_out.hex
-        if (top->m_dsp_valid == 1) {
-            // Write the 8-bit edge map pixel as a 2-character hex string
-            video_out << std::setfill('0') << std::setw(2) << std::hex << (int)top->m_dsp_data << "\n";
-            output_pixel_count++;
-        }
+        // Start of Frame (tuser) is 1 ONLY on the very first pixel
+        top->s_axis_tuser = (row == 0 && col == 0) ? 1 : 0;
         
+        // End of Line (tlast) is 1 ONLY on the last pixel of the row
+        top->s_axis_tlast = (col == MAX_COLS - 1) ? 1 : 0;
 
-        // Toggle Clock LOW
-        top->clk = 0;
-        top->eval(); 
-        tfp->dump(contextp->time());
-        contextp->timeInc(1); // Increment context time
+        // Tick the clock (Rising Edge)
+        top->aclk = 1;
+        top->eval();
+        tfp->dump(main_time++);
+
+        // --- CHECK OUTPUTS ON RISING EDGE ---
+        if (top->m_axis_tvalid && top->m_axis_tready) {
+            // Write the edge map pixel to our output hex file
+            outfile << std::hex << std::setw(2) << std::setfill('0') << (int)top->m_axis_tdata << "\n";
+        }
+
+        if (top->hazard_detected) {
+            hazard_triggered_count++;
+        }
+
+        // Tick the clock (Falling Edge)
+        top->aclk = 0;
+        top->eval();
+        tfp->dump(main_time++);
+
+        // Move coordinate trackers
+        col++;
+        if (col == MAX_COLS) {
+            col = 0;
+            row++;
+        }
+        pixel_count++;
     }
 
-    // Print Simulation Stats
-    std::cout << "\nSimulation finished." << std::endl;
-    std::cout << "Total Time Steps: " << std::dec << contextp->time() << std::endl;
-    std::cout << "Pixels Pushed:    " << input_pixel_count << std::endl;
-    std::cout << "Edges Captured:   " << output_pixel_count << std::endl;
+    // 3. Flush the pipeline (Run clock for a few more cycles to let the last pixels exit)
+    top->s_axis_tvalid = 0;
+    top->s_axis_tlast = 0;
+    top->s_axis_tuser = 0;
+    for (int i = 0; i < 3000; i++) {
+        top->aclk = !top->aclk;
+        top->eval();
+        
+        if (top->aclk && top->m_axis_tvalid) {
+             outfile << std::hex << std::setw(2) << std::setfill('0') << (int)top->m_axis_tdata << "\n";
+        }
+        tfp->dump(main_time++);
+    }
+
+    std::cout << "[TB] Stream Complete. Processed " << std::dec << pixel_count << " pixels." << std::endl;
+    if (hazard_triggered_count > 0) {
+        std::cout << "[TB] HAZARD DETECTED during simulation! Evasive action triggered." << std::endl;
+    } else {
+        std::cout << "[TB] Flight path clear. No hazards detected." << std::endl;
+    }
 
     // Cleanup
-    video_in.close();
-    video_out.close();
+    top->final();
     tfp->close();
-    top->final(); // Execute any SystemVerilog final blocks
+    infile.close();
+    outfile.close();
     delete top;
-    delete contextp;
     delete tfp;
+
     return 0;
 }

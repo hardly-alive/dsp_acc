@@ -16,10 +16,12 @@ module mac_unit (
     output logic signed [31:0] accumulator_out
 );
 
-logic signed [15:0] product;
+// Force Vivado to use a DSP48 slice for this math
+(* use_dsp = "yes" *) logic signed [15:0] product;
 assign product = pixel_in * weight_in;
 
-always_ff @(posedge clk or negedge rst_n) begin
+always_ff @(posedge clk) begin
+    // SYNCHRONOUS reset.
     if (!rst_n) begin
         accumulator_out <= '0;
     end

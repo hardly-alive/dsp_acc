@@ -1,0 +1,57 @@
+==========================================
+
+Vivado & FPGA Build Files
+
+==========================================
+
+*.jou
+*.log
+*.str
+*.zip
+.Xil/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.xpr
+*.bit
+*.xsa
+*.hdf
+UAV_DSP/
+
+==========================================
+
+Verilator & Simulation Files
+
+==========================================
+
+obj_dir/
+*.vcd
+video_in.hex
+video_out.hex
+ai_brain_visual.jpg
+dsp_output.jpg
+
+==========================================
+
+Vitis & Software Files
+
+==========================================
+
+.metadata/
+RemoteSystemsTempFiles/
+*.elf
+*.o
+
+==========================================
+
+Python & OS Cache
+
+==========================================
+
+pycache/
+*.pyc
+.DS_Store
+Thumbs.db

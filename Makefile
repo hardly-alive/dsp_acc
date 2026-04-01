@@ -4,6 +4,7 @@
 
 # --- Tools & Variables ---
 VERILATOR = verilator
+VIVADO    = vivado
 TOP       = uav_accelerator_top
 TB        = hw/tb/tb_uav_accelerator.cpp
 
@@ -20,10 +21,14 @@ SV_SRCS   = $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.sv))
 INC_FLAGS = -I$(INC_DIR) $(foreach dir, $(SRC_DIRS), -I$(dir))
 
 # --- Rules ---
-.PHONY: all prep build run image clean full_flow
+.PHONY: all prep build run image clean full_flow vivado gui clean_vivado clean_all
 
-# The default target runs the whole pipeline end-to-end
+# The default target runs the simulation pipeline end-to-end
 all: full_flow
+
+# ==========================================
+# VERILATOR SIMULATION FLOW
+# ==========================================
 
 # 1. Generate the test data using Python
 prep:
@@ -51,8 +56,35 @@ image:
 full_flow: prep run image
 	@echo "\n✅ PIPELINE COMPLETE! Open 'dsp_output.jpg' to see your hardware's vision."
 
-# Cleanup temporary files and build directories
+# Cleanup temporary simulation files
 clean:
-	@echo "Cleaning workspace..."
+	@echo "Cleaning simulation workspace..."
 	rm -rf obj_dir
-	rm -f *.hex *.jpg *.vcd
+	rm -f video_in.hex video_out.hex *.jpg *.vcd
+
+
+# ==========================================
+# VIVADO FPGA FLOW
+# ==========================================
+
+# 1. Build the entire Vivado Project from the Tcl script
+vivado:
+	@echo "\n--- Building Vivado Project ---"
+	$(VIVADO) -mode batch -source tcl_scripts/build_project.tcl
+	@echo "\n✅ Vivado project 'UAV_DSP' successfully recreated!"
+
+# 2. Open the generated Vivado project in the GUI
+gui:
+	@echo "\n--- Opening Vivado GUI ---"
+	$(VIVADO) UAV_DSP/UAV_DSP.xpr &
+
+# 3. Clean up all Vivado-generated junk
+clean_vivado:
+	@echo "Cleaning Vivado workspace..."
+	rm -rf UAV_DSP .Xil *.jou *.log *.str
+
+# ==========================================
+# MASTER CLEAN
+# ==========================================
+clean_all: clean clean_vivado
+	@echo "✅ Repository restored to pristine state!"

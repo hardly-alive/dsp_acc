@@ -7,7 +7,7 @@ module weight_rom (
     output logic signed [DATA_WIDTH-1:0] weight_out
 );
 
-logic signed [DATA_WIDTH-1:0] rom_memory [0:(1 << ROM_ADDR_WIDTH)-1];
+(* ram_style = "block" *) logic signed [DATA_WIDTH-1:0] rom_memory [0:(1 << ROM_ADDR_WIDTH)-1];
 
 initial begin
     $readmemh(WEIGHT_FILE, rom_memory);
