@@ -71,9 +71,7 @@ The accelerator is a **fully pipelined, AXI4-Stream compliant Image Signal Proce
 
 1. **Grayscale Conversion**
    - Optimized integer approximation:
-     ```
-     (R >> 2) + (G >> 1) + (B >> 2)
-     ```
+     `(R >> 2) + (G >> 1) + (B >> 2)`
    - Minimizes DSP usage
 
 2. **Gaussian Blur (3×3)**
@@ -96,39 +94,57 @@ The accelerator is a **fully pipelined, AXI4-Stream compliant Image Signal Proce
 ## ⚡ Performance & Optimization
 
 | Metric                  | Value        |
-|------------------------|-------------|
-| Power Consumption      | **0.125 W** |
-| Slice Registers        | 288         |
-| Slice LUTs             | 272         |
-| DSP48E1 Usage          | Optimized   |
-| BRAM Usage             | Fully utilized |
-| Timing                 | 100 MHz (positive slack) |
+|-------------------------|--------------|
+| Power Consumption       | **0.125 W** |
+| Slice Registers         | 288          |
+| Slice LUTs              | 272          |
+| DSP48E1 Usage           | Optimized    |
+| BRAM Usage              | Fully utilized |
+| Timing                  | 100 MHz (positive slack) |
 
 ### 🔧 Key Optimizations
 
 - Eliminated **42,000+ flip-flops** caused by async resets  
-- Enforced **synchronous design (`always_ff @(posedge clk)`)**  
-- Forced inference into:
+- Enforced **synchronous design (`always_ff @(posedge clk)`)** - Forced inference into:
   - ✅ **BRAM (line buffers, weights)**
-  - ✅ **DSP slices (MAC operations)**  
+  - ✅ **DSP slices (MAC operations)** Result: **67% power reduction + deterministic latency**
 
-Result: **67% power reduction + deterministic latency**
 
 ## 🏎️ Benchmark: Hardware vs. CPU
 
-To prove the necessity of this architecture, the exact same AI vision pipeline (Grayscale → Gaussian Blur → Sobel → MAC Array) was benchmarked on laptop CPU using Python/NumPy, and compared against the Verilator hardware simulation.
+To prove the necessity of this architecture, the exact same AI vision pipeline (Grayscale → Gaussian Blur → Sobel → MAC Array) was benchmarked on a laptop CPU using Python/NumPy, and compared against the Verilator hardware simulation.
 
-| Metric | Software (ARM CPU) | Hardware (FPGA Fabric) | Improvement |
+| Metric | Software (Laptop CPU) | Hardware (FPGA Fabric) | Improvement |
 | :--- | :--- | :--- | :--- |
 | **Processing Time** | 62.41 ms | **9.21 ms** | **~6.7x Faster** |
 
-
 *Note: The hardware processes 1 pixel per clock cycle at 100 MHz. For a 1280x720 frame (921,600 pixels), total hardware pipeline time is strictly bounded to 9.21 ms, allowing the drone to react to hazards instantaneously while leaving the CPU entirely free for flight dynamics.*
 
+### Execution Log (Verilator & CPU Benchmark)
+```text
+hardlyalive@HAkCbOOk:~/dsp_acc$ make full_flow
+
+--- [3/4] Running Hardware Simulation ---
+./obj_dir/Vuav_accelerator_top
+[TB] Starting Reset Sequence...
+[TB] Reset Released. Starting AXI Video Stream.
+>>> [HAZARD] Score: 1249 | Time: 1002326
+[TB] Stream Complete. Processed 921600 pixels.
+[TB] HAZARD DETECTED during simulation! Evasive action triggered.
+------------------------------
+```
+```text
+hardlyalive@HAkCbOOk:~/dsp_acc$ python -u sw/utils/benchmark_cpu.py
+--- Starting CPU Benchmark ---
+CPU Processing Time: 62.41 ms
+Hazard Score: 2170
+Hazard Detected: True
+------------------------------
+```
 
 ## 📂 Repository Structure
 
-````
+```text
 dsp_acc/
 ├── hw/
 │   ├── constrs/        # XDC timing & pin constraints
@@ -140,13 +156,13 @@ dsp_acc/
 │
 ├── sw/
 │   ├── ai/             # Python model training
+│   ├── src/            # Vitis main file
 │   └── utils/          # Image ↔ Hex converters
 │
 ├── tcl_scripts/        # Vivado automation
 ├── Makefile            # Build system
 └── .gitignore          # Excludes Vivado artifacts
-
-````
+```
 
 
 ## 🚀 Quick Start
@@ -157,9 +173,9 @@ dsp_acc/
 - Verilator
   ```bash
   sudo apt install verilator
-
-* Python 3 (numpy, OpenCV)
-* Vivado 2024.1 (added to PATH)
+  ```
+- Python 3 (numpy, OpenCV)
+- Vivado 2024.1 (added to PATH)
 
 ---
 
@@ -221,11 +237,9 @@ Removes:
 ## 🔮 Future Roadmap
 
 ### 🧠 CNN Acceleration
-
 * AXI4-Lite weight loading
 * Fully unrolled convolution layers
 
 ### 📷 Live Camera Input
-
 * MIPI CSI-2 sensor integration
 * Real-time onboard processing
